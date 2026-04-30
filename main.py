@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 import sqlite3
+import os
+import zipfile
 
 app = FastAPI(title="India Village Geo API")
 
@@ -18,6 +20,7 @@ app.add_middleware(
 SECRET_KEY = "mysecretkey"
 ALGORITHM = "HS256"
 DB_NAME = "geo_api.db"
+ZIP_NAME = "geo_api.db.zip"
 
 
 class LoginData(BaseModel):
@@ -25,44 +28,22 @@ class LoginData(BaseModel):
     password: str
 
 
+def extract_database():
+    if os.path.exists(ZIP_NAME):
+        with zipfile.ZipFile(ZIP_NAME, "r") as zip_ref:
+            zip_ref.extractall()
+        print("Database extracted successfully from geo_api.db.zip")
+
+
 def get_db():
     return sqlite3.connect(DB_NAME)
 
 
 def init_db():
+    extract_database()
+
     conn = get_db()
     cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS states (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            state_name TEXT UNIQUE
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS districts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            district_name TEXT,
-            state_id INTEGER
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sub_districts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sub_district_name TEXT,
-            district_id INTEGER
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS villages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            village_name TEXT,
-            sub_district_id INTEGER
-        )
-    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS api_keys (
@@ -98,78 +79,6 @@ def init_db():
         VALUES ('admin', 'Free', 50)
     """)
 
-    demo_data = {
-        "TAMIL NADU": {
-            "Thiruvallur": {
-                "Gummidipoondi": ["Egumadurai", "Gummidipoondi", "Ponneri"]
-            }
-        },
-        "KARNATAKA": {
-            "Kolar": {
-                "Bangarapet": ["Kolar", "Bethamangala", "Kammasandra"]
-            }
-        },
-        "ANDHRA PRADESH": {
-            "Chittoor": {
-                "Madanapalle": ["Madanapalle", "Nimmanapalle"]
-            }
-        }
-    }
-
-    for state_name, districts in demo_data.items():
-        cursor.execute(
-            "INSERT OR IGNORE INTO states (state_name) VALUES (?)",
-            (state_name,)
-        )
-
-        cursor.execute(
-            "SELECT id FROM states WHERE state_name = ?",
-            (state_name,)
-        )
-        state_id = cursor.fetchone()[0]
-
-        for district_name, subdistricts in districts.items():
-            cursor.execute("""
-                INSERT INTO districts (district_name, state_id)
-                SELECT ?, ?
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM districts
-                    WHERE district_name = ? AND state_id = ?
-                )
-            """, (district_name, state_id, district_name, state_id))
-
-            cursor.execute("""
-                SELECT id FROM districts
-                WHERE district_name = ? AND state_id = ?
-            """, (district_name, state_id))
-            district_id = cursor.fetchone()[0]
-
-            for subdistrict_name, villages in subdistricts.items():
-                cursor.execute("""
-                    INSERT INTO sub_districts (sub_district_name, district_id)
-                    SELECT ?, ?
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM sub_districts
-                        WHERE sub_district_name = ? AND district_id = ?
-                    )
-                """, (subdistrict_name, district_id, subdistrict_name, district_id))
-
-                cursor.execute("""
-                    SELECT id FROM sub_districts
-                    WHERE sub_district_name = ? AND district_id = ?
-                """, (subdistrict_name, district_id))
-                subdistrict_id = cursor.fetchone()[0]
-
-                for village_name in villages:
-                    cursor.execute("""
-                        INSERT INTO villages (village_name, sub_district_id)
-                        SELECT ?, ?
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM villages
-                            WHERE village_name = ? AND sub_district_id = ?
-                        )
-                    """, (village_name, subdistrict_id, village_name, subdistrict_id))
-
     conn.commit()
     conn.close()
 
@@ -179,7 +88,6 @@ def startup_event():
     init_db()
 
 
-# Force DB creation also during import
 init_db()
 
 
