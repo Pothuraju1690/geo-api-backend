@@ -20,7 +20,7 @@ app.add_middleware(
 SECRET_KEY = "mysecretkey"
 ALGORITHM = "HS256"
 DB_NAME = "geo_api.db"
-ZIP_NAME = "geo_api.db.zip"
+ZIP_NAME = "geo_api.zip"
 
 
 class LoginData(BaseModel):
