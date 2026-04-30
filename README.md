@@ -16,6 +16,13 @@ A full-stack geo data platform that provides hierarchical location data of India
 
 ---
 
+## 🌐 Live Project
+
+Frontend: https://geo-api-capstone.netlify.app/  
+Backend API: https://geo-api-backend.onrender.com/docs
+
+---
+
 ## 🛠️ Tech Stack
 
 - **Backend**: FastAPI (Python)
